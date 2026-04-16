@@ -15,7 +15,7 @@ to 2.5kHz (data) bandwidth.
 - Configured by editing a text file — no software or terminal needed.
 - Transmits any 5kHz 16-bit PCM WAV file.
 - Automatic Morse code ID with configurable tone, speed, and spacing.
-- RF output > 12dBm / 15mW.
+- RF output > 18dBm at full power. Down to ~ -20dBm with full attenuation.
 - Charges over USB.
 - Expansion header provides:
   - 12 GPIOs (including I2C, SPI, UART, ADC).
@@ -48,6 +48,7 @@ cycle the PicoFox. A default settings file will be regenerated.
 - `CALLSIGN`: Alphanumeric callsign (max 12 characters).
 - `ITU_ZONE`: ITU zone where the transmitter operates (`1`, `2`, or `3`).
 - `FREQ_MHZ`: Transmit frequency in MHz.
+- `ATTENUATION`: Attenuation level `0` - `127`, approximately 0.25dB steps.
 - `DUTY_CYCLE`: Transmit duty cycle percentage (`0–100`).
 - `MORSE_WPM`: Morse ID speed in words per minute.
 - `MORSE_FARNSWORTH_WPM`: Slower Farnsworth spacing speed (ignored if lower than `MORSE_WPM`).
