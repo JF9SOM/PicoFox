@@ -89,8 +89,9 @@ const char SETTINGS_CRC[] = ".settings_crc.bin";
 
 // Default settings.
 const char DEFAULT_CALLSIGN[12] = "";
-const uint8_t DEFAULT_ITU_ZONE = 2;
-const double DEFAULT_FREQ_MHZ = 146.565;
+const uint8_t DEFAULT_ITU_ZONE = 1;
+// Japan ARDF frequencies: 145.660 MHz or 145.780 MHz (JARL)
+const double DEFAULT_FREQ_MHZ = 145.660;
 const uint8_t DEFAULT_DUTY_CYCLE = 100;
 const uint8_t DEFAULT_WPM = 15;
 const uint8_t DEFAULT_FARNSWORTH_WPM = 10;
