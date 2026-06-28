@@ -540,28 +540,47 @@ uint32_t playAudio(const char* filename) {
   return audioLengthMs;
 }
 
-// Plays the given audio file and generated morse code id repeatedly.
+// Plays audio and morse ID within the assigned 12-second ARDF slot.
+// Foxes share a 60-second cycle; fox N transmits starting at (N-1)*12s from
+// power-on. All foxes must be powered on simultaneously for slot alignment.
 void audioTask() {
+  const uint32_t CYCLE_MS = 60000;
+  const uint32_t SLOT_MS  = 12000;
+
   while (true) {
     if (hostMounted) {  // Cancel task if the host is trying to use the filesystem.
       setSi5351Output(false);
       break;
     }
 
-    if (settings.isConfigured && settings.dutyCyclePercent > 0) {
-      setSi5351Output(true);
-      uint32_t audioLengthMs = playAudio(AUDIO_WAV);
-      if (!test_mode) { // No generated morse in test mode.
-        audioLengthMs += playAudio(CALLSIGN_WAV);
-      }
-      if (settings.dutyCyclePercent < 100) {
-        uint32_t offTime = ((100 - settings.dutyCyclePercent) * audioLengthMs) / 100;
-        setSi5351Output(false);
-        delay(offTime);
-      }
-    } else {
+    if (!settings.isConfigured) {
       delay(1000);
+      continue;
     }
+
+    // Calculate ms until the start of this fox's next slot.
+    uint32_t slotStartMs = (uint32_t)(settings.foxNumber - 1) * SLOT_MS;
+    uint32_t posInCycle  = millis() % CYCLE_MS;
+    uint32_t waitMs = (slotStartMs >= posInCycle)
+                        ? slotStartMs - posInCycle
+                        : CYCLE_MS - posInCycle + slotStartMs;
+    if (waitMs > 0) delay(waitMs);
+
+    // 1. Carrier ON (unmodulated) at slot start.
+    uint32_t txStart = millis();
+    setSi5351Output(true);
+
+    // 2. Transmit morse ID. Skipped in test mode.
+    if (!test_mode) {
+      playAudio(CALLSIGN_WAV);
+    }
+
+    // 3. Hold unmodulated carrier for the remainder of the slot, then OFF.
+    uint32_t elapsed = millis() - txStart;
+    if (elapsed < SLOT_MS) {
+      delay(SLOT_MS - elapsed);
+    }
+    setSi5351Output(false);
   }
 }
 
