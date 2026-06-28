@@ -52,6 +52,7 @@ transmit. Configuring a callsign is required to enable the transmitter.
 #define MAX_UINT32 4294967295                   // Maximum value for a 32 bit unsigned integer. Used to prevent glitches when micros() overflows.
 
 #define TEST_MODE_PIN 14u                       // Pin which is monitored to enter test mode. If you use this pin feel free to remove this logic.
+#define SYNC_PIN      13u                       // Sync input (active LOW pulse). Resets the 60s cycle epoch. See HARDWARE.md.
 
 // Frequency limitations.
 #define MIN_FREQ_MHZ 144
@@ -60,6 +61,10 @@ transmit. Configuring a callsign is required to enable the transmitter.
 
 // Test mode detected. Indicates program / test before shipping.
 bool test_mode;
+
+// Timestamp of the last sync pulse (millis()). Resets the 60s cycle epoch.
+// Zero means power-on is used as the epoch (same as no sync).
+volatile uint32_t syncEpochMs = 0;
 
 // Board revision.
 uint16_t revision;
@@ -540,9 +545,23 @@ uint32_t playAudio(const char* filename) {
   return audioLengthMs;
 }
 
+// Polls SYNC_PIN and updates syncEpochMs when an active-LOW pulse is detected.
+// Returns true if a sync event occurred.
+static bool checkSync() {
+  if (digitalRead(SYNC_PIN) == LOW) {
+    syncEpochMs = millis();
+    while (digitalRead(SYNC_PIN) == LOW) delay(1);  // Wait for release (debounce).
+    Serial.println("SYNC received: cycle epoch reset.");
+    return true;
+  }
+  return false;
+}
+
 // Plays audio and morse ID within the assigned 12-second ARDF slot.
 // Foxes share a 60-second cycle; fox N transmits starting at (N-1)*12s from
-// power-on. All foxes must be powered on simultaneously for slot alignment.
+// the last sync pulse (or power-on if no sync has been received).
+// Connect a common SYNC_PIN wire to all foxes and pulse it LOW simultaneously
+// to align all units. See HARDWARE.md for the start box circuit.
 void audioTask() {
   const uint32_t CYCLE_MS = 60000;
   const uint32_t SLOT_MS  = 12000;
@@ -554,17 +573,20 @@ void audioTask() {
     }
 
     if (!settings.isConfigured) {
-      delay(1000);
+      checkSync();
+      delay(10);
       continue;
     }
 
-    // Calculate ms until the start of this fox's next slot.
-    uint32_t slotStartMs = (uint32_t)(settings.foxNumber - 1) * SLOT_MS;
-    uint32_t posInCycle  = millis() % CYCLE_MS;
-    uint32_t waitMs = (slotStartMs >= posInCycle)
-                        ? slotStartMs - posInCycle
-                        : CYCLE_MS - posInCycle + slotStartMs;
-    if (waitMs > 0) delay(waitMs);
+    uint32_t slotOffsetMs = (uint32_t)(settings.foxNumber - 1) * SLOT_MS;
+
+    // Poll until this fox's slot starts, checking SYNC_PIN every 1ms.
+    while (true) {
+      if (checkSync()) continue;  // Epoch reset; recalculate position.
+      uint32_t posInCycle = (millis() - syncEpochMs) % CYCLE_MS;
+      if (posInCycle >= slotOffsetMs && posInCycle < slotOffsetMs + SLOT_MS) break;
+      delay(1);
+    }
 
     // 1. Carrier ON (unmodulated) at slot start.
     uint32_t txStart = millis();
@@ -622,6 +644,9 @@ void setup() {
   // Check for test mode.
   pinMode(TEST_MODE_PIN, INPUT_PULLDOWN);
   test_mode = digitalRead(TEST_MODE_PIN);
+
+  // Sync input: active LOW pulse resets the 60s cycle epoch.
+  pinMode(SYNC_PIN, INPUT_PULLUP);
 
   // Initialize board ID pins and ID the board revisions.
   pinMode(ID0, INPUT_PULLDOWN);
