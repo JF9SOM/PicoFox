@@ -98,6 +98,7 @@ const uint8_t DEFAULT_FARNSWORTH_WPM = 10;
 const uint16_t DEFAULT_MORSE_TONE_HZ = 600;
 const uint8_t DEFAULT_TONE_AMPLITUDE_PERCENT = 70;
 const uint8_t DEFAULT_ATTENUATION = 0;
+const uint8_t DEFAULT_FOX_NUMBER = 1;
 
 // Config struct, start by loading defaults.
 struct Settings {
@@ -111,6 +112,7 @@ struct Settings {
   uint8_t toneAmplitudePercent;
   bool isConfigured;
   uint8_t attenuation;
+  uint8_t foxNumber;  // ARDF fox number 1-5 (MOE=1, MOI=2, MOS=3, MOH=4, MO5=5)
 };
 
 Settings settings = {
@@ -122,7 +124,8 @@ Settings settings = {
   .farnsworthWPM = DEFAULT_FARNSWORTH_WPM,
   .morseToneHz = DEFAULT_MORSE_TONE_HZ,
   .isConfigured = (strlen(DEFAULT_CALLSIGN) > 0),
-  .attenuation = DEFAULT_ATTENUATION
+  .attenuation = DEFAULT_ATTENUATION,
+  .foxNumber = DEFAULT_FOX_NUMBER
 };
 
 int settingsCrc = 0;
@@ -201,7 +204,7 @@ void saveDefaultSettings() {
   snprintf(
     buffer,
     sizeof(buffer),
-    "CALLSIGN=%s\nITU_ZONE=%u\nFREQ_MHZ=%.6f\nDUTY_CYCLE=%u\nATTENUATION=%u\nMORSE_WPM=%u\nMORSE_FARNSWORTH_WPM=%u\nMORSE_TONE=%u\nMORSE_TONE_VOL=%u\n",
+    "CALLSIGN=%s\nITU_ZONE=%u\nFREQ_MHZ=%.6f\nDUTY_CYCLE=%u\nATTENUATION=%u\nMORSE_WPM=%u\nMORSE_FARNSWORTH_WPM=%u\nMORSE_TONE=%u\nMORSE_TONE_VOL=%u\nFOX_NUMBER=%u\n",
     DEFAULT_CALLSIGN,
     DEFAULT_ITU_ZONE,
     DEFAULT_FREQ_MHZ,
@@ -210,7 +213,8 @@ void saveDefaultSettings() {
     DEFAULT_WPM,
     DEFAULT_FARNSWORTH_WPM,
     DEFAULT_MORSE_TONE_HZ,
-    DEFAULT_TONE_AMPLITUDE_PERCENT);
+    DEFAULT_TONE_AMPLITUDE_PERCENT,
+    DEFAULT_FOX_NUMBER);
   file.open(&root, SETTINGS_TXT, O_RDWR | O_CREAT);
   file.write(buffer, strlen(buffer));
   file.close();
@@ -256,6 +260,7 @@ void loadSettings() {
       else if (key == "MORSE_FARNSWORTH_WPM") settings.farnsworthWPM = val.toInt();
       else if (key == "MORSE_TONE") settings.morseToneHz = val.toInt();
       else if (key == "MORSE_TONE_VOL") settings.toneAmplitudePercent = val.toInt();
+      else if (key == "FOX_NUMBER") settings.foxNumber = val.toInt();
       line = "";
     } else {
       line += ch;
@@ -284,6 +289,10 @@ void loadSettings() {
   }
   if (settings.toneAmplitudePercent == 0 || settings.toneAmplitudePercent > 100) {
     settings.toneAmplitudePercent = DEFAULT_TONE_AMPLITUDE_PERCENT;
+  }
+
+  if (settings.foxNumber < 1 || settings.foxNumber > 5) {
+    settings.foxNumber = DEFAULT_FOX_NUMBER;
   }
 
   // Disable transmitter if no callsign is set.
