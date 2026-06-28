@@ -390,16 +390,29 @@ void generateMorseAudio() {
     return "";
   };
 
-  writeSilence(interCharLengthSec);
-  for (int i = 0; settings.callsign[i] && i < 12; i++) {
-    const char* symbol = getMorse(settings.callsign[i]);
-    for (int j = 0; symbol[j]; j++) {
-      if (j != 0) writeSilence(ditLengthSec);
-      if (symbol[j] == '.') writeTone(ditLengthSec);
-      else if (symbol[j] == '-') writeTone(3 * ditLengthSec);
+  // ARDF identifier (MOE/MOI/MOS/MOH/MO5) followed by callsign.
+  // foxNumber 1-5 maps to identifiers per JARL ARDF rules.
+  const char* ardfIdentifiers[] = { "MOE", "MOI", "MOS", "MOH", "MO5" };
+  uint8_t idx = (settings.foxNumber >= 1 && settings.foxNumber <= 5)
+                  ? settings.foxNumber - 1 : 0;
+  const char* identifier = ardfIdentifiers[idx];
+
+  auto writeString = [&](const char* str) {
+    for (int i = 0; str[i]; i++) {
+      const char* symbol = getMorse(str[i]);
+      if (i != 0) writeSilence(interCharLengthSec);
+      for (int j = 0; symbol[j]; j++) {
+        if (j != 0) writeSilence(ditLengthSec);
+        if (symbol[j] == '.') writeTone(ditLengthSec);
+        else if (symbol[j] == '-') writeTone(3 * ditLengthSec);
+      }
     }
-    writeSilence(interCharLengthSec);
-  }
+  };
+
+  writeSilence(interCharLengthSec);
+  writeString(identifier);
+  writeSilence(interCharLengthSec);
+  writeString(settings.callsign);
   file.close();
 
   // Write a marker to indicate that the current callsign was generated.
